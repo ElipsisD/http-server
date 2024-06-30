@@ -21,7 +21,8 @@ def main():
                 case ["", ""]:
                     conn.sendall((SUCCESS_STATUS_LINE + CRLF + CRLF).encode())
                 case ["", "echo", echo_string]:
-                    prefix = get_response_prefix(echo_string)
+                    encoding_mode = headers_dict.get("Accept-Encoding")
+                    prefix = get_response_prefix(echo_string, encoding_mode=encoding_mode)
                     response = prefix + CRLF + echo_string
                     conn.sendall(response.encode())
                 case ["", "user-agent", *_]:
@@ -51,13 +52,15 @@ def main():
             conn.close()
 
 
-def get_response_prefix(content: str, content_type: str | None = None) -> str:
+def get_response_prefix(content: str, *, content_type: str | None = None, encoding_mode: str | None = None) -> str:
     if content_type is None:
         content_type = "text/plain"
     response_headers = {
         "Content-Type": content_type,
         "Content-Length": len(content),
     }
+    if encoding_mode == "gzip":
+        response_headers["Content-Encoding"] = encoding_mode
     response_prefix = CRLF.join(
         [
             SUCCESS_STATUS_LINE,
