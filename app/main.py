@@ -3,6 +3,8 @@ import sys, os
 
 CRLF = "\r\n"
 SUCCESS_STATUS_LINE = "HTTP/1.1 200 OK"
+NOT_FOUND = b"HTTP/1.1 404 Not Found\r\n\r\n"
+CREATED_RESPONSE = b"HTTP/1.1 201 Created\r\n\r\n"
 
 
 def main():
@@ -29,16 +31,22 @@ def main():
                     conn.sendall(response.encode())
                 case ["", "files", filename]:
                     directory = sys.argv[2]
-                    if os.path.exists(directory + filename):
-                        with open(directory + filename) as f:
-                            file_data = f.read()
-                            prefix = get_response_prefix(file_data, content_type="application/octet-stream")
-                        response = prefix + CRLF + file_data
-                        conn.sendall(response.encode())
-                    else:
-                        conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
+                    match method:
+                        case "GET":
+                            if os.path.exists(directory + filename):
+                                with open(directory + filename) as f:
+                                    file_data = f.read()
+                                    prefix = get_response_prefix(file_data, content_type="application/octet-stream")
+                                response = prefix + CRLF + file_data
+                                conn.sendall(response.encode())
+                            else:
+                                conn.sendall(NOT_FOUND)
+                        case "POST":
+                            with open(directory + filename, "w") as f:
+                                f.write(response_body)
+                                conn.sendall(CREATED_RESPONSE)
                 case _:
-                    conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
+                    conn.sendall(NOT_FOUND)
 
             conn.close()
 
