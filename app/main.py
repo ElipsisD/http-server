@@ -1,4 +1,5 @@
 import socket
+import sys, os
 
 CRLF = "\r\n"
 SUCCESS_STATUS_LINE = "HTTP/1.1 200 OK"
@@ -17,8 +18,7 @@ def main():
             match url_path.split("/"):
                 case ["", ""]:
                     conn.sendall((SUCCESS_STATUS_LINE + CRLF + CRLF).encode())
-                case ["", "echo", *_]:
-                    echo_string = url_path.split("echo/")[-1]
+                case ["", "echo", echo_string]:
                     prefix = get_response_prefix(echo_string)
                     response = prefix + CRLF + echo_string
                     conn.sendall(response.encode())
@@ -27,15 +27,27 @@ def main():
                     prefix = get_response_prefix(user_agent)
                     response = prefix + CRLF + user_agent
                     conn.sendall(response.encode())
+                case ["", "files", filename]:
+                    directory = sys.argv[2]
+                    if os.path.exists(directory + filename):
+                        with open(directory + filename) as f:
+                            file_data = f.read()
+                            prefix = get_response_prefix(file_data, content_type="application/octet-stream")
+                        response = prefix + CRLF + file_data
+                        conn.sendall(response.encode())
+                    else:
+                        conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
                 case _:
                     conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
             conn.close()
 
 
-def get_response_prefix(content: str) -> str:
+def get_response_prefix(content: str, content_type: str | None = None) -> str:
+    if content_type is None:
+        content_type = "text/plain"
     response_headers = {
-        "Content-Type": "text/plain",
+        "Content-Type": content_type,
         "Content-Length": len(content),
     }
     response_prefix = CRLF.join(
