@@ -5,6 +5,7 @@ CRLF = "\r\n"
 SUCCESS_STATUS_LINE = "HTTP/1.1 200 OK"
 NOT_FOUND = b"HTTP/1.1 404 Not Found\r\n\r\n"
 CREATED_RESPONSE = b"HTTP/1.1 201 Created\r\n\r\n"
+ALLOWABLE_ENCODING = "gzip"
 
 
 def main():
@@ -22,7 +23,7 @@ def main():
                     conn.sendall((SUCCESS_STATUS_LINE + CRLF + CRLF).encode())
                 case ["", "echo", echo_string]:
                     encoding_mode = headers_dict.get("Accept-Encoding")
-                    prefix = get_response_prefix(echo_string, encoding_mode=encoding_mode)
+                    prefix = get_response_prefix(echo_string, encoding_data=encoding_mode)
                     response = prefix + CRLF + echo_string
                     conn.sendall(response.encode())
                 case ["", "user-agent", *_]:
@@ -52,15 +53,15 @@ def main():
             conn.close()
 
 
-def get_response_prefix(content: str, *, content_type: str | None = None, encoding_mode: str | None = None) -> str:
+def get_response_prefix(content: str, *, content_type: str | None = None, encoding_data: str | None = None) -> str:
     if content_type is None:
         content_type = "text/plain"
     response_headers = {
         "Content-Type": content_type,
         "Content-Length": len(content),
     }
-    if encoding_mode == "gzip":
-        response_headers["Content-Encoding"] = encoding_mode
+    if encoding_data and (encoding := resolve_encoding_mode(encoding_data)):
+        response_headers["Content-Encoding"] = encoding
     response_prefix = CRLF.join(
         [
             SUCCESS_STATUS_LINE,
@@ -68,6 +69,14 @@ def get_response_prefix(content: str, *, content_type: str | None = None, encodi
         ]
     )
     return response_prefix
+
+
+def resolve_encoding_mode(encoding_data: str) -> str | None:
+    encodings = encoding_data.split(", ")
+    for encoding in encodings:
+        if encoding == ALLOWABLE_ENCODING:
+            return encoding
+    return None
 
 
 if __name__ == "__main__":
